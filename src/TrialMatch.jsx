@@ -1,12 +1,210 @@
 import React, { useState } from 'react';
-import { ChevronLeft, FileText, AlertCircle, CheckCircle2, HelpCircle, Quote, ThumbsDown, ThumbsUp, Sparkles, ChevronRight, Clock, Shield, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  ChevronLeft, FileText, AlertCircle, CheckCircle2, HelpCircle, Quote,
+  ThumbsDown, ThumbsUp, Sparkles, ChevronRight, Clock, Shield, X,
+  Phone, ClipboardList, BookOpen, Copy, RefreshCw, Info,
+} from 'lucide-react';
 
 export default function TrialMatchDetail() {
+  const navigate = useNavigate();
   const [selectedCriterion, setSelectedCriterion] = useState(0);
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState(null);
   const [criteriaOverrides, setCriteriaOverrides] = useState({});
   const [activeTab, setActiveTab] = useState('match');
+
+  // drawer state
+  const [showScriptDrawer, setShowScriptDrawer] = useState(false);
+  const [scriptPurpose, setScriptPurpose] = useState('invite');
+  const [scriptDepth, setScriptDepth] = useState('detailed');
+  const [scriptRisk, setScriptRisk] = useState('standard');
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenCount, setRegenCount] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [copiedSection, setCopiedSection] = useState(null);
+
+  // toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const fireToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  const handleContactPatient = () => {
+    fireToast('此功能将在 V2 接入医院通讯录与录音系统，演示版本暂未实现。');
+  };
+
+  const handleCopy = () => {
+    const text = getScriptSections()
+      .map(s => `【${s.title}】\n${s.content}`)
+      .join('\n\n');
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRegenerate = () => {
+    setRegenerating(true);
+    setTimeout(() => {
+      setRegenerating(false);
+      setRegenCount(c => c + 1);
+    }, 1400);
+  };
+
+  const handleExportPDF = () => {
+    fireToast('PDF 导出功能将在 V2 版本实现，届时将支持院内模板。');
+  };
+
+  const handleCopySection = (idx, content) => {
+    navigator.clipboard.writeText(content).catch(() => {});
+    setCopiedSection(idx);
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const getScriptSections = () => {
+    // risk addons — injected at the END of 03 and 04 respectively
+    const riskAdd03 = scriptRisk === 'thorough'
+      ? '\n\n另外想提前告诉您，这个试验的常见不良反应包括皮疹、腹泻、口腔黏膜反应，发生率约 30–40%，多数为轻度。少数患者可能出现间质性肺炎，发生率约 3–5%，需要密切观察。如果出现这些情况，我们会有完整的应对方案。'
+      : '';
+
+    const riskAdd04 = scriptRisk === 'thorough'
+      ? '\n\n另外说明一下，参加试验您不需要承担任何药费和检查费用，研究方会提供交通补贴。但您需要按方案要求定期到医院复查，约每 3 周一次。如果中途出现不良反应需要停药，我们会安排您回到标准治疗方案，不会影响您的诊疗。'
+      : '';
+
+    // ── 初次邀约 ──────────────────────────────────────────────
+    if (scriptPurpose === 'invite') {
+      if (scriptDepth === 'detailed') {
+        return [
+          {
+            Icon: Phone, label: '01 · 开场', title: '开场白',
+            content: `您好，请问是 W 女士本人吗？我是[医院]胸部肿瘤科的临床研究协调员，我姓李。您目前在我们科室由主治医生负责诊治。我今天致电是想向您介绍一项与您病情相关的临床研究，希望占用您约五到七分钟的时间。请问您现在方便接听吗？`,
+          },
+          {
+            Icon: ClipboardList, label: '02 · 介绍', title: '临床研究基本信息',
+            content: `好的，感谢您的时间。我们科室正在承担一项编号为 CTONG-2410 的 III 期临床研究，由阿斯利康公司申办，研究目的是评估奥希替尼联合化疗方案，在 EGFR 基因突变阳性肺腺癌一线治疗中的疗效与安全性。根据病历资料的初步评估，您的情况可能符合参与条件，因此研究医生希望我先与您沟通。我想特别说明：参与临床研究完全自愿，不参与不会对您在本院接受的任何常规治疗产生任何影响。`,
+          },
+          {
+            Icon: HelpCircle, label: '03 · 核实', title: '关键信息核实（AI 标注需确认项）',
+            content: `在进一步介绍前，我需要向您确认两项信息，这两项是研究入组的重要条件。
+
+第一，请问您目前的日常活动状态怎么样？例如能否自行完成洗漱、家务、外出就医等日常事务？近期化疗结束后，有没有感到明显体力下降，需要在床上休息超过半天的情况？——这是评估体能状态的标准问题，医学上称为 ECOG 评分，能够自理日常生活一般记为 1 分，符合入组要求。
+
+第二，近一两个月您有没有出现新发的头痛、视力变化、手脚麻木无力，或记忆力、理解力方面的明显变化？如果有上述情况，我们可能需要在正式入组前安排一次头颅 MRI 复查，以充分排查颅脑方面的影响。${riskAdd03}`,
+          },
+          {
+            Icon: BookOpen, label: '04 · 流程', title: '知情同意与后续安排',
+            content: `如果您有初步意向，下一步我们会安排您与研究医生进行详细面谈，医生会向您介绍研究方案的具体内容、潜在的获益与风险，以及研究期间的随访安排。届时会给您一份知情同意书，您可以带回家仔细阅读，也欢迎家属一同参与讨论。您在任何阶段均可退出研究，无需给出理由，也不会影响后续治疗。请问您现在有什么问题想问我的吗？如果需要时间考虑，请告诉我一个方便回电确认的时间。${riskAdd04}`,
+          },
+        ];
+      }
+      return [
+        {
+          Icon: Phone, label: '01 · 开场', title: '开场白',
+          content: `您好，请问是 W 女士本人吗？我是[医院]胸部肿瘤科的临床研究协调员，我姓李。我今天致电是想向您介绍一项临床研究，只需要占用您两三分钟。请问现在方便吗？`,
+        },
+        {
+          Icon: ClipboardList, label: '02 · 核心', title: '试验简介与关键确认',
+          content: `我们科室正承担 CTONG-2410 研究，由阿斯利康申办，评估奥希替尼联合化疗方案治疗 EGFR 突变阳性肺腺癌的效果。根据初步评估，您可能符合参与条件。在介绍详情前需向您确认两点：一是近期体力和日常活动是否正常、能否自理；二是近期有无新发头痛、视力变化等神经系统症状。${riskAdd03}`,
+        },
+        {
+          Icon: BookOpen, label: '03 · 后续', title: '后续步骤',
+          content: `如有意向，下一步会安排您与研究医生面谈，详细介绍方案内容及知情同意要求。参与完全自愿，可随时退出，不影响正常诊疗。请问您有什么问题，或者是否方便进一步了解？${riskAdd04}`,
+        },
+      ];
+    }
+
+    // ── 入组前确认 ────────────────────────────────────────────
+    if (scriptPurpose === 'confirm') {
+      if (scriptDepth === 'detailed') {
+        return [
+          {
+            Icon: Phone, label: '01 · 回访', title: '回访开场',
+            content: `您好，W 女士，我是[医院]胸部肿瘤科的临床研究协调员李[姓]。我们上次沟通时，您表示有参加 CTONG-2410 研究的意向，非常感谢您的信任。我今天致电是想和您确认入组前的最后几项细节，并安排知情同意面谈的时间。请问您现在方便接听吗？`,
+          },
+          {
+            Icon: ClipboardList, label: '02 · 确认', title: '入组前最终核实',
+            content: `好的。在正式签署知情同意书之前，我需要向您再核实两项信息：
+
+关于体能状态：上次提到需要评估您目前的日常活动能力，我们会在面谈时由研究医生直接为您评估 ECOG 评分——请问近期状态和之前相比有没有明显变化？
+
+关于颅脑检查：研究方案要求入组前完成一次头颅 MRI，以排除活动性脑转移。我们会安排在面谈当天顺带完成，不需要您额外再跑一次医院。请问近期有没有出现头痛、视物模糊等新发症状？${riskAdd03}`,
+          },
+          {
+            Icon: HelpCircle, label: '03 · 疑问', title: '还有什么需要确认的？',
+            content: `在正式签署前，您还有什么疑虑或者没想清楚的地方吗？这完全正常——知情同意书本身就是一份需要认真阅读的文件。我们鼓励您把任何问题留到面谈时当面问研究医生。家属也可以一同参加，我们非常欢迎。`,
+          },
+          {
+            Icon: BookOpen, label: '04 · 安排', title: '面谈时间预约',
+            content: `好的，那我们来定一下面谈时间。整个面谈大概需要一到一个半小时，包括研究医生详细介绍方案、签署知情同意书，以及安排后续基线检查的预约。请问您本周或者下周哪天上午方便过来？我会提前和研究医生确认时间并发短信通知您。${riskAdd04}`,
+          },
+        ];
+      }
+      return [
+        {
+          Icon: Phone, label: '01 · 回访', title: '回访开场',
+          content: `您好，W 女士，我是[医院]胸部肿瘤科临床研究协调员李[姓]。上次您表示有参加 CTONG-2410 研究的意向，我今天致电是来安排入组面谈时间的。请问现在方便说话吗？`,
+        },
+        {
+          Icon: ClipboardList, label: '02 · 核心', title: '入组前确认',
+          content: `签署知情同意书前需再确认两点：ECOG 体能状态（研究医生面谈时直接评估）和入组前头颅 MRI（安排当天一并完成）。请问近期体力状态和神经系统方面有无新变化？还有什么问题需要在见面前解答？${riskAdd03}`,
+        },
+        {
+          Icon: BookOpen, label: '03 · 预约', title: '预约面谈',
+          content: `好的，那我们来安排面谈时间，约需一到一个半小时，包含知情同意签署和基线检查预约。请问本周或下周哪天上午方便？我会提前发短信确认。${riskAdd04}`,
+        },
+      ];
+    }
+
+    // ── 解答疑问 ──────────────────────────────────────────────
+    if (scriptDepth === 'detailed') {
+      return [
+        {
+          Icon: Phone, label: '01 · 开场', title: '开场与回顾',
+          content: `您好，W 女士，我是[医院]胸部肿瘤科临床研究协调员李[姓]。上次和您介绍了 CTONG-2410 研究，您说想再多了解一些——我今天专门致电是来解答您的疑问的。不管是什么顾虑，您都可以直接问我，没有任何问题是奇怪的。请问您现在方便聊吗？`,
+        },
+        {
+          Icon: ClipboardList, label: '02 · 解答', title: '主动回应常见顾虑',
+          content: `很多患者在了解临床研究时会有类似的担心，我把几个常见的问题先主动说一下：
+
+关于"是否会影响我现在的治疗"：参加研究期间，您仍然由原来的主治医生负责诊治。联合方案是在标准治疗基础上的强化，而不是替代。如果中途需要调整，研究团队会第一时间处理。
+
+关于"副作用是否会更严重"：联合化疗确实比单药有略多的副作用风险，但研究团队会全程密切监测，所有检查和用药免费，并有完整的不良反应预案。
+
+关于"时间和精力的投入"：研究随访周期约每 3 周一次，可以和常规复查合并安排，尽量减少您额外跑医院的次数。`,
+        },
+        {
+          Icon: HelpCircle, label: '03 · 核实', title: '关键信息核实（入组必要评估）',
+          content: `在回答您的问题之余，我也需要向您确认两项信息，这是入组评估的必要内容：
+
+第一，请问您目前日常活动和体力状态怎么样？能否自行完成洗漱、外出就医等？研究医生会在面谈时正式评定体能评分，今天我只是先了解一下大概情况。
+
+第二，近期有没有出现新发的头痛或者神经系统方面的症状？如果有，入组前我们需要安排一次头颅 MRI 复查，我们会帮您统一安排，不需要您自己预约。${riskAdd03}`,
+        },
+        {
+          Icon: BookOpen, label: '04 · 引导', title: '引导下一步',
+          content: `我理解做这个决定需要权衡很多方面，完全不需要着急。如果您还有其他疑问，可以随时拨打这个电话，或者让我帮您约研究医生直接面谈——有些问题面对面解释会比电话清楚得多。如果您目前感觉疑虑已经基本得到解答，我们也可以初步安排入组面谈的时间，您随时可以在签署前再反悔。请问您现在的想法是怎样的？${riskAdd04}`,
+        },
+      ];
+    }
+    return [
+      {
+        Icon: Phone, label: '01 · 开场', title: '开场与回顾',
+        content: `您好，W 女士，我是[医院]胸部肿瘤科临床研究协调员李[姓]。上次介绍了 CTONG-2410 研究，您有一些疑问想了解。今天致电就是来解答您的顾虑的，请问现在方便吗？`,
+      },
+      {
+        Icon: ClipboardList, label: '02 · 解答', title: '主要顾虑解答',
+        content: `参加研究不会影响您的现有治疗，副作用有完整监测预案，随访可与常规复查合并安排。关于 ECOG 体能评估和颅脑检查，我们会统一安排在面谈当天完成，不需要您额外跑一趟。${riskAdd03}`,
+      },
+      {
+        Icon: BookOpen, label: '03 · 引导', title: '下一步',
+        content: `如果主要疑虑已经解答，可以安排研究医生面谈，当面更详细解释，签前随时可以再反悔。您不需要现在就做决定。请问您目前倾向怎样？${riskAdd04}`,
+      },
+    ];
+  };
 
   const criteria = [
     { id: 1, type: 'inclusion', text: '组织学或细胞学确诊的局部晚期或转移性非小细胞肺癌', status: 'match', confidence: 'high',
@@ -90,9 +288,28 @@ export default function TrialMatchDetail() {
     );
   };
 
+  const ParamToggle = ({ options, value, onChange }) => (
+    <div className="flex items-center gap-1">
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`px-2.5 py-1 text-[11px] font-medium rounded transition tracking-wide ${
+            value === opt.value
+              ? 'bg-stone-900 text-white'
+              : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-400'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   const current = criteria[selectedCriterion];
   const currentEffectiveStatus = getEffectiveStatus(current);
   const isOverridden = !!criteriaOverrides[current.id];
+  const scriptSections = getScriptSections();
 
   return (
     <div className="min-h-screen bg-stone-50" style={{ fontFamily: '"Inter", ui-sans-serif, system-ui' }}>
@@ -103,7 +320,26 @@ export default function TrialMatchDetail() {
         .highlight-evidence { background: linear-gradient(180deg, transparent 60%, #fef08a 60%); padding: 0 2px; font-weight: 500; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-in { animation: slideIn 0.2s ease-out; }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes slideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+        .drawer-enter { animation: slideInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+        .overlay-enter { animation: overlayIn 0.2s ease-out; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        .toast-enter { animation: toastIn 0.18s ease-out; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
       `}</style>
+
+      {/* Toast */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-[100] toast-enter">
+          <div className="flex items-start gap-2.5 bg-stone-900 text-white rounded-lg px-4 py-3 max-w-sm shadow-lg">
+            <Info size={14} className="text-stone-400 mt-0.5 flex-shrink-0" />
+            <p className="text-[12px] leading-relaxed">{toastMessage}</p>
+          </div>
+        </div>
+      )}
 
       <header className="border-b border-stone-200 bg-white">
         <div className="max-w-[1400px] mx-auto px-8 py-3 flex items-center justify-between">
@@ -134,7 +370,10 @@ export default function TrialMatchDetail() {
       </header>
 
       <div className="max-w-[1400px] mx-auto px-8 py-8">
-        <button className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 transition mb-6 font-medium tracking-wide">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 transition mb-6 font-medium tracking-wide"
+        >
           <ChevronLeft size={14} />
           返回候选列表（共 17 人）
         </button>
@@ -195,7 +434,10 @@ export default function TrialMatchDetail() {
           <div className="col-span-5 space-y-3">
             <div className="bg-stone-900 text-white rounded-lg p-6">
               <div className="text-[10px] uppercase tracking-[0.2em] text-stone-400 font-semibold mb-3">下一步行动</div>
-              <button className="w-full bg-white text-stone-900 rounded-md py-3 px-4 text-sm font-semibold tracking-wide hover:bg-stone-100 transition mb-2 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setShowScriptDrawer(true)}
+                className="w-full bg-white text-stone-900 rounded-md py-3 px-4 text-sm font-semibold tracking-wide hover:bg-stone-100 transition mb-2 flex items-center justify-center gap-2"
+              >
                 生成患者沟通话术
                 <ChevronRight size={14} />
               </button>
@@ -407,7 +649,10 @@ export default function TrialMatchDetail() {
                           <ThumbsDown size={11} className="inline mr-1.5" />
                           推翻判断
                         </button>
-                        <button className="text-xs px-3.5 py-2 rounded-md border bg-white text-stone-700 border-stone-200 hover:border-stone-400 font-medium tracking-wide transition">
+                        <button
+                          onClick={handleContactPatient}
+                          className="text-xs px-3.5 py-2 rounded-md border bg-white text-stone-700 border-stone-200 hover:border-stone-400 font-medium tracking-wide transition"
+                        >
                           联系患者核实
                         </button>
                       </div>
@@ -489,6 +734,7 @@ export default function TrialMatchDetail() {
         </footer>
       </div>
 
+      {/* Override modal */}
       {showOverrideModal && (
         <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-slide-in">
           <div className="bg-white rounded-lg max-w-md w-full mx-4 p-6 shadow-2xl">
@@ -510,10 +756,7 @@ export default function TrialMatchDetail() {
                 <button
                   key={s}
                   onClick={() => {
-                    setCriteriaOverrides({
-                      ...criteriaOverrides,
-                      [overrideTarget.id]: { newStatus: s }
-                    });
+                    setCriteriaOverrides({ ...criteriaOverrides, [overrideTarget.id]: { newStatus: s } });
                     setShowOverrideModal(false);
                   }}
                   className="px-3 py-2.5 border border-stone-200 rounded-md text-xs font-medium hover:border-stone-900 hover:bg-stone-50 transition"
@@ -524,6 +767,169 @@ export default function TrialMatchDetail() {
             </div>
             <p className="text-[11px] text-stone-400 leading-relaxed">
               推翻 AI 判断是产品设计的关键环节——它让人始终是决策者，AI 只是助手。每次推翻都会被用于模型迭代。
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Script drawer overlay */}
+      {showScriptDrawer && (
+        <div
+          className="fixed inset-0 bg-stone-900/20 z-40 overlay-enter"
+          onClick={() => setShowScriptDrawer(false)}
+        />
+      )}
+
+      {/* Script drawer */}
+      {showScriptDrawer && (
+        <div className="fixed inset-y-0 right-0 w-[480px] bg-white border-l border-stone-200 z-50 flex flex-col drawer-enter shadow-2xl">
+
+          {/* Drawer header */}
+          <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-stone-200 flex-shrink-0">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={13} className="text-stone-600" />
+                <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-stone-500">AI 生成</span>
+                {regenCount > 0 && (
+                  <span className="font-mono text-[10px] text-stone-400">· 第 {regenCount + 1} 版</span>
+                )}
+              </div>
+              <h2 className="font-display text-xl font-semibold text-stone-900 tracking-tight leading-snug">
+                患者沟通话术 · L.W.
+              </h2>
+              <p className="text-[11px] text-stone-500 mt-1">
+                CTONG-2410 · {
+                  { invite: '初次邀约', confirm: '入组前确认', questions: '解答疑问' }[scriptPurpose]
+                }
+              </p>
+            </div>
+            <button
+              onClick={() => setShowScriptDrawer(false)}
+              className="text-stone-400 hover:text-stone-800 transition mt-0.5"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Parameters */}
+          <div className="px-6 py-3 border-b border-stone-100 bg-stone-50/60 flex-shrink-0 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold w-20">通话目的</span>
+              <ParamToggle
+                value={scriptPurpose}
+                onChange={setScriptPurpose}
+                options={[
+                  { value: 'invite', label: '初次邀约' },
+                  { value: 'confirm', label: '入组前确认' },
+                  { value: 'questions', label: '解答疑问' },
+                ]}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold w-20">沟通深度</span>
+              <ParamToggle
+                value={scriptDepth}
+                onChange={setScriptDepth}
+                options={[
+                  { value: 'brief', label: '简版 2 分钟' },
+                  { value: 'detailed', label: '详版 5–7 分钟' },
+                ]}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold w-20">风险沟通</span>
+              <ParamToggle
+                value={scriptRisk}
+                onChange={setScriptRisk}
+                options={[
+                  { value: 'standard', label: '标准' },
+                  { value: 'thorough', label: '详尽' },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Script content */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            {regenerating ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-3">
+                <RefreshCw size={20} className="text-stone-400 spin" />
+                <p className="text-[12px] text-stone-500">正在根据病历与方案重新生成…</p>
+              </div>
+            ) : (
+              scriptSections.map((section, idx) => (
+                <div key={`${scriptPurpose}-${scriptDepth}-${scriptRisk}-${idx}`} className="animate-slide-in group/section">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded bg-stone-100 flex items-center justify-center flex-shrink-0">
+                        <section.Icon size={11} className="text-stone-600" strokeWidth={2} />
+                      </div>
+                      <span className="font-mono text-[10px] text-stone-400 tracking-wider">{section.label}</span>
+                      <span className="text-stone-300 text-[10px]">·</span>
+                      <span className="text-[11px] font-semibold text-stone-700 tracking-wide">{section.title}</span>
+                    </div>
+                    <button
+                      onClick={() => handleCopySection(idx, section.content)}
+                      className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded transition font-medium
+                        ${copiedSection === idx
+                          ? 'text-emerald-700 opacity-100'
+                          : 'text-stone-400 opacity-0 group-hover/section:opacity-100 hover:text-stone-600'
+                        }`}
+                    >
+                      {copiedSection === idx
+                        ? <><CheckCircle2 size={9} strokeWidth={2.5} />已复制</>
+                        : <><Copy size={9} strokeWidth={2} />复制</>
+                      }
+                    </button>
+                  </div>
+                  <div className="pl-7">
+                    <p
+                      className="text-[13px] text-stone-800 leading-[1.85] whitespace-pre-line"
+                      style={{ fontFamily: '"Fraunces", ui-serif, Georgia, serif' }}
+                    >
+                      {section.content}
+                    </p>
+                  </div>
+                  {idx < scriptSections.length - 1 && (
+                    <div className="mt-6 border-b border-stone-100" />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Drawer footer */}
+          <div className="flex-shrink-0 border-t border-stone-200 px-6 py-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopy}
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border transition tracking-wide ${
+                  copied
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-white text-stone-700 border-stone-200 hover:border-stone-400'
+                }`}
+              >
+                <Copy size={11} />
+                {copied ? '已复制' : '复制全文'}
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border bg-white text-stone-700 border-stone-200 hover:border-stone-400 transition tracking-wide"
+              >
+                <FileText size={11} />
+                导出 PDF
+              </button>
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md bg-stone-900 text-white hover:bg-stone-800 transition tracking-wide ml-auto disabled:opacity-50"
+              >
+                <RefreshCw size={11} className={regenerating ? 'spin' : ''} />
+                重新生成
+              </button>
+            </div>
+            <p className="text-[10px] text-stone-400 leading-relaxed">
+              本话术由 AI 基于患者病历与试验方案生成，使用前请人工审阅。最终沟通效果由 CRC 经验决定。
             </p>
           </div>
         </div>
